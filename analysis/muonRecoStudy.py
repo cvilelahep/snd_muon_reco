@@ -70,9 +70,10 @@ def cutTracker(dictionary, cut_name, weight = 1) :
 
 from rootpyPickler import Unpickler
 
-geo_file = "/eos/home-c/cvilela/SND_NOV_2/test/geofile_full.Genie-TGeant4.root"
-input_filename_expr = ["/eos/home-c/cvilela/SND_NOV_2/test/sndLHC.Genie-TGeant4"]
-
+#geo_file = "/eos/home-c/cvilela/SND_NOV_2/test/geofile_full.Genie-TGeant4.root"
+#input_filename_expr = ["/eos/home-c/cvilela/SND_NOV_2/test/sndLHC.Genie-TGeant4"]
+geo_file = "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/test_100/0/geofile_full.Genie-TGeant4.root"
+input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/test_100/0/sndLHC.Genie-TGeant4"]
 # Sort out geometry
 fgeo = ROOT.TFile.Open(geo_file)
 upkl    = Unpickler(fgeo)
