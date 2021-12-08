@@ -7,7 +7,7 @@ I_JOB=$3
 NUPDG=$4
 NUINT=$5
 
-if [ $NUPDG -eq 12 ]; then NUNAME=nue; elif [ $NUPDG -eq 14 ]; then NUNAME=numu; fi
+if [ $NUPDG -eq 12 ]; then NUNAME=nue; elif [ $NUPDG -eq 14 ]; then NUNAME=numu; elif [ $NUPDG -eq -12 ]; then NUNAME=anue; elif [ $NUPDG -eq -14 ]; then NUNAME=anumu;  fi
 
 echo "RUNNING " $BASE_OUT_DIR $N_TO_RUN $I_JOB
 
