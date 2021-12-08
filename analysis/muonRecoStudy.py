@@ -70,12 +70,11 @@ def cutTracker(dictionary, cut_name, weight = 1) :
 
 from rootpyPickler import Unpickler
 
-#geo_file = "/eos/home-c/cvilela/SND_NOV_2/test/geofile_full.Genie-TGeant4.root"
-#input_filename_expr = ["/eos/home-c/cvilela/SND_NOV_2/test/sndLHC.Genie-TGeant4"]
-geo_file = "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/test_100/0/geofile_full.Genie-TGeant4.root"
-input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/test_100/0/sndLHC.Genie-TGeant4"]
+sample_name = "NC"
+geo_file = "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/geofile_full.Genie-TGeant4.root"
+input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/sndLHC.Genie-TGeant4"]
 # Sort out geometry
-fgeo = ROOT.TFile.Open(geo_file)
+fgeo = ROOT.TFile.Open(glob.glob(geo_file)[0])
 upkl    = Unpickler(fgeo)
 snd_geo = upkl.load('ShipGeo')
 run = ROOT.FairRunSim()
@@ -107,6 +106,11 @@ for fname in input_reco_filenames :
 
 tree_reco.AddFriend(tree_digi)
 
+# Variables for plots
+w = []
+n_true_mu = []
+n_reco_mu = []
+
 # Main event loop
 for i_event, event in enumerate(tree_reco) :
     print("Looping through event {0}".format(i_event))
@@ -125,6 +129,17 @@ for i_event, event in enumerate(tree_reco) :
     true_muons = trueMuons(event)
     print(true_muons)
 
+    # Reco muons!
+    n_reco_muons = len(event.Reco_MuonTracks)
+    print("Number of reconstructed muons {0}".format(n_reco_muons))
+
+    n_true_mu.append(len(true_muons))
+    n_reco_mu.append(n_reco_muons)
+    w.append(weight)
+
+    if n_true_mu[-1] == 0 and n_reco_mu[-1] > 0 :
+        print("File {0} event {1}".format(event.GetFile().GetPath(), event.GetEntry()))
+
     # At least one true muon in the event
     if len(true_muons) == 0 :
         continue
@@ -132,15 +147,20 @@ for i_event, event in enumerate(tree_reco) :
     cutTracker(signal_definition_true_cuts, "At least one true muon", weight)
     cutTracker(event_selection_reco_cuts, "At least one true muon", weight)
     
-    # Reco muons!
-    n_reco_muons = len(event.Reco_MuonTracks)
-    print("Number of reconstructed muons {0}".format(n_reco_muons))
-
     if n_reco_muons == 0 :
         continue
         
     cutTracker(event_selection_reco_cuts, "At least one reco muon", weight)
-    
+
+# Print some numbers
+n_true_mu = np.array(n_true_mu)
+n_reco_mu = np.array(n_reco_mu)
+w = np.array(w)
+
+for n_mu in range(0, 5) :
+    print("True {0} muon events {1} correctly reconstructed {2}".format(n_mu, np.sum(w[n_true_mu == n_mu]), np.sum(w[np.logical_and(n_true_mu == n_mu, n_reco_mu == n_mu)])))
+print("Total events {0}".format(np.sum(w)))
+
 # Make some plots
 import matplotlib.pyplot as plt
 
@@ -154,4 +174,12 @@ plt.plot(range(len(event_selection_reco_cuts)), [w/next(iter(event_selection_rec
 plt.xticks(range(len(event_selection_reco_cuts)), event_selection_reco_cuts.keys())
 plt.tight_layout()
 
+plt.figure()
+plt.hist2d(n_true_mu, n_reco_mu, weights = w, range = ((0, 5), (0, 5)), bins = (5, 5))
+plt.xlabel("Number of true muons")
+plt.ylabel("Number of reconstructed muons")
+plt.tight_layout()
+plt.savefig("muon_multiplicity_"+sample_name+".png")
+
 plt.show()
+
