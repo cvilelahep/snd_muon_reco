@@ -70,7 +70,7 @@ def cutTracker(dictionary, cut_name, weight = 1) :
 
 from rootpyPickler import Unpickler
 
-sample_name = "NC"
+sample_name = "numuDefault"
 geo_file = "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/geofile_full.Genie-TGeant4.root"
 input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/sndLHC.Genie-TGeant4"]
 # Sort out geometry
@@ -137,8 +137,9 @@ for i_event, event in enumerate(tree_reco) :
     n_reco_mu.append(n_reco_muons)
     w.append(weight)
 
-    if n_true_mu[-1] == 0 and n_reco_mu[-1] > 0 :
-        print("File {0} event {1}".format(event.GetFile().GetPath(), event.GetEntry()))
+    if n_true_mu[-1] != n_reco_mu[-1] :
+        print("Did not correctly identify muons. Expected {0}, reconstructed {1}".format(n_true_mu[-1], n_reco_mu[-1]))
+        print("File {0} event {1}".format(event.GetFile().GetPath(), event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()]))
 
     # At least one true muon in the event
     if len(true_muons) == 0 :

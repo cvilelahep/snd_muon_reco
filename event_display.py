@@ -10,6 +10,38 @@ a = ROOT.TVector3()
 b = ROOT.TVector3()
 # Just a plotting tool
 
+def getTruth(event) :
+    mc_truth = {}
+    
+    for point_collections in [event.MuFilterPoint, event.vetoPoint, event.ScifiPoint ] :
+        for point in point_collections :
+            if point.GetTrackID() < 0 :
+                continue
+            if point.GetTrackID() not in mc_truth :
+                mc_truth[point.GetTrackID()] = [point.PdgCode(), [], [], [], [], [], [], []]
+            else :
+                mc_truth[point.GetTrackID()][1].append(point.GetX())
+                mc_truth[point.GetTrackID()][2].append(point.GetY())
+                mc_truth[point.GetTrackID()][3].append(point.GetZ())
+                mc_truth[point.GetTrackID()][4].append(point.GetTime())
+                mc_truth[point.GetTrackID()][5].append(point.GetPx())
+                mc_truth[point.GetTrackID()][6].append(point.GetPy())
+                mc_truth[point.GetTrackID()][7].append(point.GetPz())
+    return mc_truth
+
+mc_colors = {}
+mc_colors[13] = "tab:red"
+mc_colors[22] = "tab:olive"
+mc_colors[11] = "tab:olive"
+
+def draw_truth(mc_truth, dims) :
+    for trackID, track in mc_truth.items() :
+        if abs(track[0]) in mc_colors :
+            this_color = mc_colors[abs(track[0])]
+        else :
+            this_color = "tab:purple"
+        plt.plot(track[1+dims[0]], track[1+dims[1]], color = this_color)
+
 def draw_hits(ax, x, d, color, label) :
     for i in range(len(x)) :
         ax.add_patch(Rectangle(
@@ -20,9 +52,6 @@ def draw_hits(ax, x, d, color, label) :
             patch = mpatches.Patch(color=color, label=label)
             handles.append(patch) 
 
-#from hough_transform import hough
-import truth_ana
-
 # Geometry stuff
 from rootpyPickler import Unpickler
 
@@ -32,7 +61,7 @@ parser.add_argument("geo_file")
 parser.add_argument("event_number", type = int)
 parser.add_argument("--reco_file")
 parser.add_argument("--out_name")
-parser.add_argument("--truth", type = bool)
+parser.add_argument("--truth", type = bool, default = True)
 
 args = parser.parse_args()
 
@@ -50,9 +79,15 @@ event = ROOT.TChain("cbmsim")
 
 event.Add(args.input_digi_file)
 
-event.GetEntry(args.event_number)
+print(event.GetEntries())
+print(args.event_number)
 
-truth = truth_ana.getTrueTracks(event)
+if args.reco_file is not None :
+    reco_event = ROOT.TChain("cbmsim")
+    reco_event.Add(args.reco_file)
+    event.AddFriend(reco_event)
+
+event.GetEntry(args.event_number)
 
 # Read hits
 # For downstream muon filter hits
@@ -139,61 +174,67 @@ for hit_collection in [mu_ds, mu_us, veto, scifi] :
 
 plt.figure(figsize = [1.5*6.4, 1.5*4.8])
 ax_zx = plt.subplot(2, 1, 1)
-if args.truth is not None :
-    if args.truth :
-        for trackID, track in truth.items() :
-            plt.plot([p[2] for p in track[1]], [p[0] for p in track[1]], linewidth = 1., color = truth_ana.track_color(track[0]), alpha = 0.5)
+#if args.truth is not None :
+#    if args.truth :
+#        for trackID, track in truth.items() :
+#            plt.plot([p[2] for p in track[1]], [p[0] for p in track[1]], linewidth = 1., color = truth_ana.track_color(track[0]), alpha = 0.5)
 
-draw_hits(ax_zx, 
-          np.dstack([mu_ds["pos"][2][mu_ds["vert"]], mu_ds["pos"][0][mu_ds["vert"]]])[0], 
-          np.dstack([mu_ds["d"][2][mu_ds["vert"]], mu_ds["d"][0][mu_ds["vert"]]])[0],
-          "tab:blue", "MuFilter")
-draw_hits(ax_zx, 
-          np.dstack([scifi["pos"][2][scifi["vert"]], scifi["pos"][0][scifi["vert"]]])[0], 
-          np.dstack([scifi["d"][2][scifi["vert"]], scifi["d"][0][scifi["vert"]]])[0],
-          "tab:cyan", "Scifi")
+if len(mu_ds["vert"]) :
+    draw_hits(ax_zx, 
+              np.dstack([mu_ds["pos"][2][mu_ds["vert"]], mu_ds["pos"][0][mu_ds["vert"]]])[0], 
+              np.dstack([mu_ds["d"][2][mu_ds["vert"]], mu_ds["d"][0][mu_ds["vert"]]])[0],
+              "tab:blue", "MuFilter")
+if len(scifi["vert"]) :
+    draw_hits(ax_zx, 
+              np.dstack([scifi["pos"][2][scifi["vert"]], scifi["pos"][0][scifi["vert"]]])[0], 
+              np.dstack([scifi["d"][2][scifi["vert"]], scifi["d"][0][scifi["vert"]]])[0],
+              "tab:cyan", "Scifi")
+
+if args.truth :
+    mc_truth = getTruth(event)
+    draw_truth(mc_truth, [2, 0])
 
 #plt.xlabel("z [cm]")
 plt.ylabel("x [cm]")
 
 
 ax_zy = plt.subplot(2, 1, 2)
-if args.truth is not None :
-    if args.truth :
-        for trackID, track in truth.items() :
-            plt.plot([p[2] for p in track[1]], [p[1] for p in track[1]], linewidth = 1., color = truth_ana.track_color(track[0]), alpha = 0.5)
+#if args.truth is not None :
+#    if args.truth :
+#        for trackID, track in truth.items() :
+#            plt.plot([p[2] for p in track[1]], [p[1] for p in track[1]], linewidth = 1., color = truth_ana.track_color(track[0]), alpha = 0.5)
 
-draw_hits(ax_zy, 
-          np.dstack([mu_ds["pos"][2][~mu_ds["vert"]], mu_ds["pos"][1][~mu_ds["vert"]]])[0], 
-          np.dstack([mu_ds["d"][2][~mu_ds["vert"]], mu_ds["d"][1][~mu_ds["vert"]]])[0],
-          "tab:blue", "MuFilter")
-draw_hits(ax_zy, 
-          np.dstack([mu_us["pos"][2][~mu_us["vert"]], mu_us["pos"][1][~mu_us["vert"]]])[0], 
-          np.dstack([mu_us["d"][2][~mu_us["vert"]], mu_us["d"][1][~mu_us["vert"]]])[0],
-          "tab:blue", None)
-draw_hits(ax_zy, 
-          np.dstack([veto["pos"][2][~veto["vert"]], veto["pos"][1][~veto["vert"]]])[0], 
-          np.dstack([veto["d"][2][~veto["vert"]], veto["d"][1][~veto["vert"]]])[0],
-          "tab:brown", None)
-draw_hits(ax_zy, 
-          np.dstack([scifi["pos"][2][~scifi["vert"]], scifi["pos"][1][~scifi["vert"]]])[0], 
-          np.dstack([scifi["d"][2][~scifi["vert"]], scifi["d"][1][~scifi["vert"]]])[0],
-          "tab:cyan", "Scifi")
+if len(mu_ds["vert"]) :
+    draw_hits(ax_zy, 
+              np.dstack([mu_ds["pos"][2][~mu_ds["vert"]], mu_ds["pos"][1][~mu_ds["vert"]]])[0], 
+              np.dstack([mu_ds["d"][2][~mu_ds["vert"]], mu_ds["d"][1][~mu_ds["vert"]]])[0],
+              "tab:blue", "MuFilter")
+if len(veto["vert"]) :
+    draw_hits(ax_zy, 
+              np.dstack([veto["pos"][2][~veto["vert"]], veto["pos"][1][~veto["vert"]]])[0], 
+              np.dstack([veto["d"][2][~veto["vert"]], veto["d"][1][~veto["vert"]]])[0],
+              "tab:brown", None)
+if len(mu_us["vert"]) :
+    draw_hits(ax_zy, 
+              np.dstack([mu_us["pos"][2][~mu_us["vert"]], mu_us["pos"][1][~mu_us["vert"]]])[0], 
+              np.dstack([mu_us["d"][2][~mu_us["vert"]], mu_us["d"][1][~mu_us["vert"]]])[0],
+              "tab:blue", None)
+if len(scifi["vert"]) :
+    draw_hits(ax_zy, 
+              np.dstack([scifi["pos"][2][~scifi["vert"]], scifi["pos"][1][~scifi["vert"]]])[0], 
+              np.dstack([scifi["d"][2][~scifi["vert"]], scifi["d"][1][~scifi["vert"]]])[0],
+              "tab:cyan", "Scifi")
+
+if args.truth :
+    draw_truth(mc_truth, [2, 1])
+
 
 if args.reco_file is not None :
-    with open(args.reco_file, "rb") as f :
-        reco = pickle.load(f)
-    for i_track, track in enumerate(reco[args.event_number]) :
-        if not i_track :
-            label = "Hough track"
-        else :
-            label = None
-        ax_zx.plot(track['all']['ZX'][2][:,0], track['all']['ZX'][2][:,1], label = label, color = "tab:green", alpha = 0.5) 
-        ax_zy.plot(track['all']['ZY'][2][:,0], track['all']['ZY'][2][:,1], color = "tab:green", alpha = 0.5) 
-        print(track['all']['ZX'][2])
-        print(track['all']['ZY'][2])
+    for reco_track in event.Reco_MuonTracks :
+        ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().X(), reco_track.getStop().X()], color = "tab:green")
+        ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().Y(), reco_track.getStop().Y()], color = "tab:green")
 
-ax_zx.legend()
+#ax_zx.legend()
 
 plt.xlabel("z [cm]")
 plt.ylabel("y [cm]")
