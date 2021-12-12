@@ -11,8 +11,8 @@ if [ $NUPDG -eq 12 ]; then NUNAME=nue; elif [ $NUPDG -eq 14 ]; then NUNAME=numu;
 
 echo "RUNNING " $BASE_OUT_DIR $N_TO_RUN $I_JOB
 
-# Check if this solves job crashing problem. Typically run 100 jobs, so at most wait 10 minutes before starting.
-sleep $(( I_JOB*6 ))s
+# Check if this solves job crashing problem. Typically run 100 jobs, so at most wait 15 minutes before starting.
+sleep $(( I_JOB*9 ))s
 
 # Set up SND environment
 source /cvmfs/sndlhc.cern.ch/latest/setUp.sh
