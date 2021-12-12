@@ -4,6 +4,7 @@ import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.patches as mpatches
+import copy
 
 import ROOT
 a = ROOT.TVector3()
@@ -91,32 +92,23 @@ event.GetEntry(args.event_number)
 
 # Read hits
 # For downstream muon filter hits
-mu_ds = {"pos" : [[], [], []], 
-         "d" : [[], [], []], 
-         "vert" : [], 
-         "index" : [],
-         "system" : []}
+base_hit_dict = {"pos" : [[], [], []], 
+                 "d" : [[], [], []], 
+                 "vert" : [], 
+                 "index" : [],
+                 "system" : [], 
+                 "in_track" : []}
+
+mu_ds = copy.deepcopy(base_hit_dict)
 
 # For upstream muon filter hits
-mu_us = {"pos" : [[], [], []], 
-         "d" : [[], [], []], 
-         "vert" : [],
-         "index" : [],
-         "system" : [] }
+mu_us = copy.deepcopy(base_hit_dict)
 
 # For scifi hits
-scifi = {"pos" : [[], [], []], 
-         "d" : [[], [], []], 
-         "vert" : [],
-         "index" : [], 
-         "system" : []}
+scifi = copy.deepcopy(base_hit_dict)
 
 # For veto hits
-veto = {"pos" : [[], [], []], 
-        "d" : [[], [], []], 
-        "vert" : [],
-        "index" : [], 
-        "system" : []}
+veto = copy.deepcopy(base_hit_dict)
 
 # Loop through hits
 for i_hit, muFilterHit in enumerate(event.Digi_MuFilterHits) :
@@ -150,6 +142,14 @@ for i_hit, muFilterHit in enumerate(event.Digi_MuFilterHits) :
     # Upstream or veto
     else :
         mu["d"][1].append(6.)
+
+    in_track = False
+    if args.reco_file is not None :
+        for reco_track in event.Reco_MuonTracks :
+            if muFilterHit.GetDetectorID() in reco_track.getHits() :
+                in_track = True
+
+    mu["in_track"].append(in_track)
             
 for i_hit, scifiHit in enumerate(event.Digi_ScifiHits) :
     modules['Scifi'].GetSiPMPosition(scifiHit.GetDetectorID(), a, b)
@@ -167,6 +167,14 @@ for i_hit, scifiHit in enumerate(event.Digi_ScifiHits) :
     scifi["index"].append(i_hit)
         
     scifi["system"].append(0)
+
+    in_track = False
+    if args.reco_file is not None :
+        for reco_track in event.Reco_MuonTracks :
+            if scifiHit.GetDetectorID() in reco_track.getHits() :
+                in_track = True
+
+    scifi["in_track"].append(in_track)
     
 for hit_collection in [mu_ds, mu_us, veto, scifi] :
     for key, item in hit_collection.items() :
@@ -190,6 +198,19 @@ if len(scifi["vert"]) :
               np.dstack([scifi["d"][2][scifi["vert"]], scifi["d"][0][scifi["vert"]]])[0],
               "tab:cyan", "Scifi")
 
+if args.reco_file is not None :
+    if len(mu_ds["vert"]) :
+        draw_hits(ax_zx,
+                  np.dstack([mu_ds["pos"][2][np.logical_and(mu_ds["vert"], mu_ds["in_track"])], mu_ds["pos"][0][np.logical_and(mu_ds["vert"], mu_ds["in_track"])]])[0], 
+                  np.dstack([mu_ds["d"][2][np.logical_and(mu_ds["vert"], mu_ds["in_track"])], mu_ds["d"][0][np.logical_and(mu_ds["vert"], mu_ds["in_track"])]])[0],
+                  "tab:orange", "MuFilter")
+
+    if len(scifi["vert"]) :
+        draw_hits(ax_zx, 
+                  np.dstack([scifi["pos"][2][np.logical_and(scifi["vert"], scifi["in_track"])], scifi["pos"][0][np.logical_and(scifi["vert"], scifi["in_track"])]])[0], 
+                  np.dstack([scifi["d"][2][np.logical_and(scifi["vert"], scifi["in_track"])], scifi["d"][0][np.logical_and(scifi["vert"], scifi["in_track"])]])[0],
+                  "tab:orange", "Scifi")
+                  
 if args.truth :
     mc_truth = getTruth(event)
     draw_truth(mc_truth, [2, 0])
@@ -225,6 +246,28 @@ if len(scifi["vert"]) :
               np.dstack([scifi["d"][2][~scifi["vert"]], scifi["d"][1][~scifi["vert"]]])[0],
               "tab:cyan", "Scifi")
 
+if args.reco_file is not None :
+    if len(mu_ds["vert"]) :
+        draw_hits(ax_zy, 
+                  np.dstack([mu_ds["pos"][2][np.logical_and(~mu_ds["vert"], mu_ds["in_track"])], mu_ds["pos"][1][np.logical_and(~mu_ds["vert"], mu_ds["in_track"])]])[0], 
+                  np.dstack([mu_ds["d"][2][np.logical_and(~mu_ds["vert"], mu_ds["in_track"])], mu_ds["d"][1][np.logical_and(~mu_ds["vert"], mu_ds["in_track"])]])[0],
+                  "tab:orange", "MuFilter")
+    if len(veto["vert"]) :
+        draw_hits(ax_zy, 
+                  np.dstack([veto["pos"][2][np.logical_and(~veto["vert"], veto["in_track"])], veto["pos"][1][np.logical_and(~veto["vert"], veto["in_track"])]])[0], 
+                  np.dstack([veto["d"][2][np.logical_and(~veto["vert"], veto["in_track"])], veto["d"][1][np.logical_and(~veto["vert"], veto["in_track"])]])[0],
+                  "tab:orange", None)
+    if len(mu_us["vert"]) :
+        draw_hits(ax_zy, 
+                  np.dstack([mu_us["pos"][2][np.logical_and(~mu_us["vert"], mu_us["in_track"])], mu_us["pos"][1][np.logical_and(~mu_us["vert"], mu_us["in_track"])]])[0], 
+                  np.dstack([mu_us["d"][2][np.logical_and(~mu_us["vert"], mu_us["in_track"])], mu_us["d"][1][np.logical_and(~mu_us["vert"], mu_us["in_track"])]])[0],
+                  "tab:orange", None)
+    if len(scifi["vert"]) :
+        draw_hits(ax_zy, 
+                  np.dstack([scifi["pos"][2][np.logical_and(~scifi["vert"], scifi["in_track"])], scifi["pos"][1][np.logical_and(~scifi["vert"], scifi["in_track"])]])[0], 
+                  np.dstack([scifi["d"][2][np.logical_and(~scifi["vert"], scifi["in_track"])], scifi["d"][1][np.logical_and(~scifi["vert"], scifi["in_track"])]])[0],
+                  "tab:orange", "Scifi")
+
 if args.truth :
     draw_truth(mc_truth, [2, 1])
 
@@ -232,7 +275,7 @@ if args.truth :
 if args.reco_file is not None :
     for reco_track in event.Reco_MuonTracks :
         ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().X(), reco_track.getStop().X()], color = "tab:green")
-        ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().Y(), reco_track.getStop().Y()], color = "tab:green")
+        ax_zy.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().Y(), reco_track.getStop().Y()], color = "tab:green")
 
 #ax_zx.legend()
 
