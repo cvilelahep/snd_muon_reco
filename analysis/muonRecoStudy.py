@@ -221,7 +221,10 @@ for i_event, event in enumerate(tree_reco) :
         if mufilter_hit.GetSystem() == 3 :
             n_ds_hits += 1
             
-            if mufilter_hit.GetDetectorID()//1000 >= 3 :
+            print(mufilter_hit.GetDetectorID())
+            print(mufilter_hit.GetDetectorID()//1000)
+            print(mufilter_hit.GetDetectorID()//1000-mufilter_hit.GetDetectorID()//10000*10)
+            if mufilter_hit.GetDetectorID()//1000-mufilter_hit.GetDetectorID()//10000*10 >= 2 :
                 n_ds_hits_last += 1
 
             if mufilter_hit.GetDetectorID() not in hit_list :
