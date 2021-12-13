@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 
 t_numu = ROOT.TChain("cbmsim")
 
-numu_file_names = "/eos/home-c/cvilela/SND/neutrino/test_1k/{0}/sndLHC.Genie-TGeant4_dig.root"
+#numu_file_names = "/eos/home-c/cvilela/SND/neutrino/test_1k/{0}/sndLHC.Genie-TGeant4_dig.root"
+numu_file_names = "/eos/home-c/cvilela/SND_ANALYSIS/neutrino/numuDefault/{0}/sndLHC.Genie-TGeant4_dig.root"
+#numu_file_names = "/eos/home-c/cvilela/SND_ANALYSIS/neutrino/backup_20211212/numuCharmCCDIS//{0}/sndLHC.Genie-TGeant4_dig.root"
 
 n_muons = []
 n_muons_thr = []
@@ -23,11 +25,6 @@ muon_parent = []
 nu_energies = []
 
 for i in range(20) :
-#for i in range(10) :
-#for i in range(100) :
-    if i == 80 :
-        # Broken numu file
-        continue
     print("Adding neutrino file {0}".format(i))
     if os.path.isfile(numu_file_names.format(i)) :
         t_numu.Add(numu_file_names.format(i))
