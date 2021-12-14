@@ -27,7 +27,6 @@ def fiducialVolume(x, y, z) :
 def trueMuons(event) :
     # Define true muon as a muon that starts in the target region and produces at least one hit in the downstream muon filter.
     muons = []
-
     for hit in event.Digi_MuFilterHits :
         if hit.GetSystem() != 3 :
             continue
@@ -74,7 +73,7 @@ def cutTracker(dictionary, cut_name, weight = 1) :
 
 from rootpyPickler import Unpickler
 
-sample_name = "numuDefault"
+sample_name = "nueDefault"
 geo_file = "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/geofile_full.Genie-TGeant4.root"
 input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/"+sample_name+"/*/sndLHC.Genie-TGeant4"]
 # Sort out geometry
@@ -119,7 +118,10 @@ plot_vars["n_reco_mu_pruned"] = []
 plot_vars["n_unassigned_hits"] = []
 plot_vars["n_ds_hits"] = []
 plot_vars["n_last_ds_hits"] = []
+plot_vars["n_last_unassigned_hits"] = []
 plot_vars["transverse_distance_reco_mu_shower_center"] = []
+plot_vars["cc"] = []
+plot_vars["charm"] = []
 
 # Misreco
 misid_filename = []
@@ -129,8 +131,8 @@ misid_nreco = []
 
 # Main event loop
 for i_event, event in enumerate(tree_reco) :
-    if i_event > 20000 :
-        break
+#    if i_event > 2000 :
+#        break
     print("Looping through event {0}".format(i_event))
     
     inFV, weight = getNuWeightFV(event)
@@ -154,6 +156,15 @@ for i_event, event in enumerate(tree_reco) :
     plot_vars["n_true_mu"].append(len(true_muons))
     plot_vars["n_reco_mu_raw"].append(n_raw_reco_mu)
     plot_vars["w"].append(weight)
+
+    is_cc = False
+    is_charm = False
+    if abs(event.MCTrack[1].GetPdgCode()) in [11, 13, 15] :
+        is_cc = True
+    if abs(event.MCTrack[2].GetPdgCode()) in [411, 421, 4122, 431] :
+        is_charm = True
+    plot_vars["cc"].append(is_cc)
+    plot_vars["charm"].append(is_charm)
 
     # Estimate average position using scifi hits
     scifi_mean_x = 0.
@@ -210,6 +221,7 @@ for i_event, event in enumerate(tree_reco) :
 
     # Count unassigned downstream hits
     n_ds_hits_unassigned = 0
+    n_ds_hits_unassigned_last = 0
     n_ds_hits = 0
     n_ds_hits_last = 0
     hit_list = []
@@ -221,15 +233,16 @@ for i_event, event in enumerate(tree_reco) :
         if mufilter_hit.GetSystem() == 3 :
             n_ds_hits += 1
             
-            print(mufilter_hit.GetDetectorID())
-            print(mufilter_hit.GetDetectorID()//1000)
-            print(mufilter_hit.GetDetectorID()//1000-mufilter_hit.GetDetectorID()//10000*10)
             if mufilter_hit.GetDetectorID()//1000-mufilter_hit.GetDetectorID()//10000*10 >= 2 :
                 n_ds_hits_last += 1
 
             if mufilter_hit.GetDetectorID() not in hit_list :
                 n_ds_hits_unassigned += 1
+                if mufilter_hit.GetDetectorID()//1000-mufilter_hit.GetDetectorID()//10000*10 >= 2 :
+                    n_ds_hits_unassigned_last += 1
+
     plot_vars["n_unassigned_hits"].append(n_ds_hits_unassigned)
+    plot_vars["n_last_unassigned_hits"].append(n_ds_hits_unassigned_last)
     plot_vars["n_ds_hits"].append(n_ds_hits)
     plot_vars["n_last_ds_hits"].append(n_ds_hits_last)
 
@@ -248,7 +261,7 @@ for i_event, event in enumerate(tree_reco) :
     cutTracker(signal_definition_true_cuts, "At least one true muon", weight)
     cutTracker(event_selection_reco_cuts, "At least one true muon", weight)
     
-    if n_raw_reco_mu == 0 :
+    if n_prune_reco_mu == 0 :
         continue
         
     cutTracker(event_selection_reco_cuts, "At least one reco muon", weight)
@@ -279,19 +292,94 @@ plt.plot(range(len(event_selection_reco_cuts)), [w/next(iter(event_selection_rec
 plt.xticks(range(len(event_selection_reco_cuts)), event_selection_reco_cuts.keys())
 plt.tight_layout()
 
+def plotConfusion(true, reco, weights, label_reco, label_true, cuts = None) :
+    true = np.clip(true, 0, 3)
+    reco = np.clip(reco, 0, 3)
+
+    if cuts is not None :
+        norm = weights[cuts].sum()
+        hist, xbins, ybins, im = plt.hist2d(true[cuts], reco[cuts], weights = weights[cuts]/norm, range = ((-0.5, 3.5), (-0.5, 3.5)), bins = (4, 4), vmin = 0, vmax = 1.)
+    else :        
+        norm = weights.sum()
+        hist, xbins, ybins, im = plt.hist2d(true, reco, weights = weights/norm, range = ((-0.5, 3.5), (-0.5, 3.5)), bins = (4, 4), vmin = 0, vmax = 1)
+
+    for i in range(len(ybins)-1):
+        for j in range(len(xbins)-1):
+            plt.text(xbins[j]+0.5,ybins[i]+0.5, "{0:.1f}%".format(hist.T[i,j]*100), 
+                     color="w", ha="center", va="center", fontweight="bold")
+
+    plt.xticks(range(4))
+    plt.yticks(range(4))
+
+    plt.xlabel(label_true)
+    plt.ylabel(label_reco)
+    plt.tight_layout()
+
 plt.figure()
-plt.hist2d(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], weights = plot_vars["w"], range = ((0, 5), (0, 5)), bins = (5, 5))
-plt.xlabel("Number of true muons")
-plt.ylabel("Number of raw reconstructed muons")
-plt.tight_layout()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], plot_vars["w"], "Number of raw reconstructed muons", "Number of true muons")
 plt.savefig("muon_multiplicity_raw_"+sample_name+".png")
 
 plt.figure()
-plt.hist2d(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], weights = plot_vars["w"], range = ((0, 5), (0, 5)), bins = (5, 5))
-plt.xlabel("Number of true muons")
-plt.ylabel("Number of reconstructed muons")
-plt.tight_layout()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons")
 plt.savefig("muon_multiplicity_pruned_"+sample_name+".png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = plot_vars["n_ds_hits"]<50)
+plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+".png")
+
+nc_charm = np.logical_and(~plot_vars["cc"], plot_vars["charm"])
+cc_charm = np.logical_and(plot_vars["cc"], plot_vars["charm"])
+
+nc = np.logical_and(~plot_vars["cc"], ~plot_vars["charm"])
+cc = np.logical_and(plot_vars["cc"], ~plot_vars["charm"])
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], plot_vars["w"], "Number of raw reconstructed muons", "Number of true muons", cuts = nc_charm)
+plt.savefig("muon_multiplicity_raw_"+sample_name+"_NC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = nc_charm)
+plt.savefig("muon_multiplicity_pruned_"+sample_name+"_NC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = np.logical_and(plot_vars["n_ds_hits"]<50, nc_charm))
+plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+"_NC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], plot_vars["w"], "Number of raw reconstructed muons", "Number of true muons", cuts = cc_charm)
+plt.savefig("muon_multiplicity_raw_"+sample_name+"_CC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = cc_charm)
+plt.savefig("muon_multiplicity_pruned_"+sample_name+"_CC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = np.logical_and(plot_vars["n_ds_hits"]<50, cc_charm))
+plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+"_CC_charm.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], plot_vars["w"], "Number of raw reconstructed muons", "Number of true muons", cuts = nc)
+plt.savefig("muon_multiplicity_raw_"+sample_name+"_NC.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = nc)
+plt.savefig("muon_multiplicity_pruned_"+sample_name+"_NC.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = np.logical_and(plot_vars["n_ds_hits"]<50, nc))
+plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+"_NC.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"], plot_vars["w"], "Number of raw reconstructed muons", "Number of true muons", cuts = cc)
+plt.savefig("muon_multiplicity_raw_"+sample_name+"_CC.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = cc)
+plt.savefig("muon_multiplicity_pruned_"+sample_name+"_CC.png")
+
+plt.figure()
+plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = np.logical_and(plot_vars["n_ds_hits"]<50, cc))
+plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+"_CC.png")
 
 good_reco_mask = np.equal(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"])
 
@@ -312,6 +400,12 @@ plt.hist(plot_vars["n_last_ds_hits"][good_reco_mask], bins = 100, range = (0, 10
 plt.hist(plot_vars["n_last_ds_hits"][~good_reco_mask], bins = 100, range = (0, 100), label = "Misidentified muon(s)", weights = plot_vars["w"][~good_reco_mask], histtype = "step")
 plt.yscale("log")
 plt.xlabel("Number of ds hits in layers 3 and 4")
+
+plt.figure()
+plt.hist(plot_vars["n_last_unassigned_hits"][good_reco_mask], bins = 100, range = (0, 100), label = "Correctly reconstructed muon(s)", weights = plot_vars["w"][good_reco_mask], histtype = "step")
+plt.hist(plot_vars["n_last_unassigned_hits"][~good_reco_mask], bins = 100, range = (0, 100), label = "Misidentified muon(s)", weights = plot_vars["w"][~good_reco_mask], histtype = "step")
+plt.yscale("log")   
+plt.xlabel("Number of unassigned ds hits in layers 3 and 4")
 
 
 plt.figure()
