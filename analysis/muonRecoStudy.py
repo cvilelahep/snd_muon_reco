@@ -129,10 +129,34 @@ misid_evtno = []
 misid_ntrue = []
 misid_nreco = []
 
+# Good CC
+goodcc_filename = []
+goodcc_evtno = []
+goodcc_ntrue = []
+goodcc_nreco = []
+
+# Good NC
+goodnc_filename = []
+goodnc_evtno = []
+goodnc_ntrue = []
+goodnc_nreco = []
+
+# Good CC Charm
+goodcccharm_filename = []
+goodcccharm_evtno = []
+goodcccharm_ntrue = []
+goodcccharm_nreco = []
+
+# Good CC Charm
+goodnccharm_filename = []
+goodnccharm_evtno = []
+goodnccharm_ntrue = []
+goodnccharm_nreco = []
+
 # Main event loop
 for i_event, event in enumerate(tree_reco) :
-#    if i_event > 2000 :
-#        break
+    if i_event > 50000 :
+        break
     print("Looping through event {0}".format(i_event))
     
     inFV, weight = getNuWeightFV(event)
@@ -247,12 +271,33 @@ for i_event, event in enumerate(tree_reco) :
     plot_vars["n_last_ds_hits"].append(n_ds_hits_last)
 
     if plot_vars["n_true_mu"][-1] != plot_vars["n_reco_mu_raw"][-1] :
-        print("Did not correctly identify muons. Expected {0}, reconstructed {1}".format(plot_vars["n_true_mu"][-1], plot_vars["n_reco_mu_raw"][-1]))
-        print("File {0} event {1}".format(event.GetFile().GetPath(), event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()]))
         misid_filename.append(event.GetFile().GetPath())
         misid_evtno.append(event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()])
         misid_ntrue.append(plot_vars["n_true_mu"][-1])
         misid_nreco.append(plot_vars["n_reco_mu_raw"][-1])
+    else :
+        if is_cc and not is_charm :
+            goodcc_filename.append(event.GetFile().GetPath())
+            goodcc_evtno.append(event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()])
+            goodcc_ntrue.append(plot_vars["n_true_mu"][-1])
+            goodcc_nreco.append(plot_vars["n_reco_mu_raw"][-1])
+        elif is_cc and is_charm :
+            goodcccharm_filename.append(event.GetFile().GetPath())
+            goodcccharm_evtno.append(event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()])
+            goodcccharm_ntrue.append(plot_vars["n_true_mu"][-1])
+            goodcccharm_nreco.append(plot_vars["n_reco_mu_raw"][-1])
+        elif not is_cc and not is_charm :
+            goodnc_filename.append(event.GetFile().GetPath())
+            goodnc_evtno.append(event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()])
+            goodnc_ntrue.append(plot_vars["n_true_mu"][-1])
+            goodnc_nreco.append(plot_vars["n_reco_mu_raw"][-1])
+        elif not is_cc and is_charm :
+            goodnccharm_filename.append(event.GetFile().GetPath())
+            goodnccharm_evtno.append(event.GetReadEntry()-event.GetTreeOffset()[event.GetTreeNumber()])
+            goodnccharm_ntrue.append(plot_vars["n_true_mu"][-1])
+            goodnccharm_nreco.append(plot_vars["n_reco_mu_raw"][-1])
+
+            
 
     # At least one true muon in the event
     if len(true_muons) == 0 :
@@ -278,6 +323,18 @@ print("Total events {0}".format(np.sum(plot_vars["w"])))
 with open("misid_"+sample_name+".txt", "w") as f :
     for i in range(len(misid_filename)) :
         f.write("True {0} Reco {1} Filename {2} Event number {3}\n".format(misid_ntrue[i], misid_nreco[i], misid_filename[i], misid_evtno[i]))
+with open("goodcc_"+sample_name+".txt", "w") as f :
+    for i in range(len(goodcc_filename)) :
+        f.write("True {0} Reco {1} Filename {2} Event number {3}\n".format(goodcc_ntrue[i], goodcc_nreco[i], goodcc_filename[i], goodcc_evtno[i]))
+with open("goodcccharm_"+sample_name+".txt", "w") as f :
+    for i in range(len(goodcccharm_filename)) :
+        f.write("True {0} Reco {1} Filename {2} Event number {3}\n".format(goodcccharm_ntrue[i], goodcccharm_nreco[i], goodcccharm_filename[i], goodcccharm_evtno[i]))
+with open("goodnc_"+sample_name+".txt", "w") as f :
+    for i in range(len(goodnc_filename)) :
+        f.write("True {0} Reco {1} Filename {2} Event number {3}\n".format(goodnc_ntrue[i], goodnc_nreco[i], goodnc_filename[i], goodnc_evtno[i]))
+with open("goodnccharm_"+sample_name+".txt", "w") as f :
+    for i in range(len(goodnccharm_filename)) :
+        f.write("True {0} Reco {1} Filename {2} Event number {3}\n".format(goodnccharm_ntrue[i], goodnccharm_nreco[i], goodnccharm_filename[i], goodnccharm_evtno[i]))
 
 # Make some plots
 import matplotlib.pyplot as plt
@@ -313,6 +370,33 @@ def plotConfusion(true, reco, weights, label_reco, label_true, cuts = None) :
 
     plt.xlabel(label_true)
     plt.ylabel(label_reco)
+    plt.tight_layout()
+
+def plotModes(cc, charm, true, weights) :
+    true = np.clip(true, 0, 3)
+
+    mode = np.zeros(len(cc))
+    
+    # 0 - CCDIS
+    # 1 - CCCharm
+    mode += np.logical_and(cc, charm)*1
+    # 2 - NC
+    mode += np.logical_and(~cc, ~charm)*2
+    # 3 - NCCharm
+    mode += np.logical_and(~cc, charm)*3
+    
+    norm = weights.sum()
+    hist, xbins, ybins, im = plt.hist2d(mode, true, weights = weights/norm, range = ((-0.5, 3.5), (-0.5, 3.5)), bins = (4, 4), vmin = 0, vmax = 1)
+
+    for i in range(len(ybins)-1):
+        for j in range(len(xbins)-1):
+            plt.text(xbins[j]+0.5,ybins[i]+0.5, "{0:.1f}%".format(hist.T[i,j]*100), 
+                     color="w", ha="center", va="center", fontweight="bold")
+
+    plt.xticks(range(4), ["CCDIS", "CharmCCDIS", "NC", "CharmNC"])
+    plt.yticks(range(4))
+
+    plt.ylabel("Number of true muons")
     plt.tight_layout()
 
 plt.figure()
@@ -380,6 +464,10 @@ plt.savefig("muon_multiplicity_pruned_"+sample_name+"_CC.png")
 plt.figure()
 plotConfusion(plot_vars["n_true_mu"], plot_vars["n_reco_mu_pruned"], plot_vars["w"], "Number of reconstructed muons", "Number of true muons", cuts = np.logical_and(plot_vars["n_ds_hits"]<50, cc))
 plt.savefig("muon_multiplicity_pruned_sparseevents_"+sample_name+"_CC.png")
+
+plt.figure()
+plotModes(plot_vars["cc"], plot_vars["charm"], plot_vars["n_true_mu"], plot_vars["w"])
+plt.savefig("true_multiplicity_vs_mode_"+sample_name+".png")
 
 good_reco_mask = np.equal(plot_vars["n_true_mu"], plot_vars["n_reco_mu_raw"])
 
