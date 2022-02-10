@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize
 
+charmList = [411, 421, 10411, 10421, 413, 423, 10413, 10423, 20413, 20423, 415, 425, 431, 10431, 433, 10433, 20433, 435, # Mesons
+             4122, 4222, 4212, 4112, 4224, 4214, 4114, 4232, 4132, 4322, 4312, 4324, 4314, 4332, 4334, 4412, 4422, 4414, 4424, 4432, 4434, 4444] # Baryons
+
 input_filename_expr = ["/eos/user/c/cvilela/SND_ANALYSIS/neutrino/numuDefault/*/sndLHC.Genie-TGeant4_dig.root",
                        "/eos/user/c/cvilela/SND_ANALYSIS/neutrino/nueDefault/*/sndLHC.Genie-TGeant4_dig.root"]
 
@@ -41,7 +44,7 @@ for i_event, event in enumerate(events) :
     charm_start_z = []
     charm_start_t = []
     for i_track, track in enumerate(event.MCTrack) :
-        if abs(track.GetPdgCode()) in [411, 421, 4122, 431] :
+        if abs(track.GetPdgCode()) in charmList :
             if track.GetMotherId() == 0 :
                 if i_track not in charm_tracks_ID :
                     charm_tracks_ID.append(i_track)
@@ -89,7 +92,7 @@ for i_event, event in enumerate(events) :
             print("T mother {0} daughter {1}".format(mother_t, track.GetStartT()))
             print("Z mother {0} daughter {1}".format(mother_z, track.GetStartZ()))
 
-print("Fraction of events with charm production: {0}".format(counter_charm/float(counter)))
+print("Primary charm hadrons per event: {0}".format(counter_charm/float(counter)))
 charm_counts = Counter(all_charm_tracks_PDG)
 for pdg, n in charm_counts.items() :
     print("Fraction of events with {0}: {1}".format(pdg, n/float(counter)))
