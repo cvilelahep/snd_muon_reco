@@ -14,7 +14,8 @@ b = ROOT.TVector3()
 def getTruth(event) :
     mc_truth = {}
     
-    for point_collections in [event.MuFilterPoint, event.vetoPoint, event.ScifiPoint ] :
+#    for point_collections in [event.MuFilterPoint, event.vetoPoint, event.ScifiPoint ] :
+    for point_collections in [event.MuFilterPoint, event.ScifiPoint ] :
         for point in point_collections :
             if point.GetTrackID() < 0 :
                 continue
@@ -62,7 +63,9 @@ parser.add_argument("geo_file")
 parser.add_argument("event_number", type = int)
 parser.add_argument("--reco_file")
 parser.add_argument("--out_name")
-parser.add_argument("--truth", type = bool, default = True)
+parser.add_argument("--truth", type = bool, default = False)
+parser.add_argument("--h6", dest = "h6", action = "store_true")
+parser.set_defaults(h6 = False)
 
 args = parser.parse_args()
 
@@ -76,7 +79,11 @@ modules = sndDet_conf.configure(run,snd_geo)
 sGeo = fgeo.FAIRGeom
 modules['Scifi'].SiPMmapping()
 
-event = ROOT.TChain("cbmsim")
+treeName = "cbmsim"
+if args.h6 :
+    treeName = "rawConv"
+
+event = ROOT.TChain(treeName)
 
 event.Add(args.input_digi_file)
 
@@ -84,7 +91,7 @@ print(event.GetEntries())
 print(args.event_number)
 
 if args.reco_file is not None :
-    reco_event = ROOT.TChain("cbmsim")
+    reco_event = ROOT.TChain(treeName)
     reco_event.Add(args.reco_file)
     event.AddFriend(reco_event)
 
@@ -124,44 +131,44 @@ for i_hit, muFilterHit in enumerate(event.Digi_MuFilterHits) :
         print("WARNING! Unknown MuFilter system!!")
 
     modules['MuFilter'].GetPosition(muFilterHit.GetDetectorID(), a, b)
-    mu["pos"][0].append(a.X())
-    mu["pos"][1].append(a.Y())
-    mu["pos"][2].append(a.Z())
+    mu["pos"][0].append((a+b).X()/2.)
+    mu["pos"][1].append((a+b).Y()/2.)
+    mu["pos"][2].append((a+b).Z()/2.)
     
     mu["vert"].append(muFilterHit.isVertical())
     mu["system"].append(muFilterHit.GetSystem())
         
-    mu["d"][0].append(1.)
-    mu["d"][2].append(1.)
+    mu["d"][0].append(1.+np.abs((a-b).X()))
+    mu["d"][2].append(1.+np.abs((a-b).Z()))
         
     mu["index"].append(i_hit)
     
     # Downstream
     if muFilterHit.GetSystem() == 3 :
-        mu["d"][1].append(1.)
+        mu["d"][1].append(1.+np.abs((a-b).Y()))
     # Upstream or veto
     else :
-        mu["d"][1].append(6.)
+        mu["d"][1].append(6.+np.abs((a-b).Y()))
 
     in_track = False
-    if args.reco_file is not None :
-        for reco_track in event.Reco_MuonTracks :
-            if muFilterHit.GetDetectorID() in reco_track.getHits() :
-                in_track = True
+#    if args.reco_file is not None :
+#        for reco_track in event.Reco_MuonTracks :
+#            if muFilterHit.GetDetectorID() in reco_track.getHits() :
+#                in_track = True
 
     mu["in_track"].append(in_track)
             
 for i_hit, scifiHit in enumerate(event.Digi_ScifiHits) :
     modules['Scifi'].GetSiPMPosition(scifiHit.GetDetectorID(), a, b)
-    scifi["pos"][0].append(a.X())
-    scifi["pos"][1].append(a.Y())
-    scifi["pos"][2].append(a.Z())
+    scifi["pos"][0].append((a+b).X()/2.)
+    scifi["pos"][1].append((a+b).Y()/2.)
+    scifi["pos"][2].append((a+b).Z()/2.)
 
     # 250 mum in x and y directions? maybe?
-    scifi["d"][0].append(250e-4)
-    scifi["d"][1].append(250e-4)
+    scifi["d"][0].append(250e-4+np.abs((a-b).X()))
+    scifi["d"][1].append(250e-4+np.abs((a-b).Y()))
     # 1.62 mm in z direction?
-    scifi["d"][2].append(0.162)
+    scifi["d"][2].append(0.162+np.abs((a-b).Z()))
     
     scifi["vert"].append(scifiHit.isVertical())
     scifi["index"].append(i_hit)
@@ -169,12 +176,16 @@ for i_hit, scifiHit in enumerate(event.Digi_ScifiHits) :
     scifi["system"].append(0)
 
     in_track = False
-    if args.reco_file is not None :
-        for reco_track in event.Reco_MuonTracks :
-            if scifiHit.GetDetectorID() in reco_track.getHits() :
-                in_track = True
+#    if args.reco_file is not None :
+#        for reco_track in event.Reco_MuonTracks :
+#            if scifiHit.GetDetectorID() in reco_track.getHits() :
+#                in_track = True
 
     scifi["in_track"].append(in_track)
+
+print(scifi["pos"][0])
+print(scifi["pos"][1])
+print(scifi["pos"][2])
     
 for hit_collection in [mu_ds, mu_us, veto, scifi] :
     for key, item in hit_collection.items() :
@@ -196,7 +207,7 @@ if len(scifi["vert"]) :
     draw_hits(ax_zx, 
               np.dstack([scifi["pos"][2][scifi["vert"]], scifi["pos"][0][scifi["vert"]]])[0], 
               np.dstack([scifi["d"][2][scifi["vert"]], scifi["d"][0][scifi["vert"]]])[0],
-              "tab:cyan", "Scifi")
+              "tab:red", "Scifi")
 
 if args.reco_file is not None :
     if len(mu_ds["vert"]) :
@@ -244,7 +255,7 @@ if len(scifi["vert"]) :
     draw_hits(ax_zy, 
               np.dstack([scifi["pos"][2][~scifi["vert"]], scifi["pos"][1][~scifi["vert"]]])[0], 
               np.dstack([scifi["d"][2][~scifi["vert"]], scifi["d"][1][~scifi["vert"]]])[0],
-              "tab:cyan", "Scifi")
+              "tab:red", "Scifi")
 
 if args.reco_file is not None :
     if len(mu_ds["vert"]) :
@@ -273,20 +284,41 @@ if args.truth :
 
 
 if args.reco_file is not None :
-    for reco_track in event.Reco_MuonTracks :
-        ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().X(), reco_track.getStop().X()], color = "tab:green")
-        ax_zy.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().Y(), reco_track.getStop().Y()], color = "tab:green")
+    for reco_track in event.Reco_KalmanTracks :
+        points_z = []
+        points_x = []
+        points_y = []
+        for i in range(reco_track.getNumPointsWithMeasurement()):
+            state = reco_track.getFittedState(i)
+            pos    = state.getPos()
+            points_z.append(pos[2])
+            points_x.append(pos[0])
+            points_y.append(pos[1])
+        ax_zx.plot(points_z, points_x, color = "tab:green")
+        ax_zy.plot(points_z, points_y, color = "tab:green")
+
+
+#    for reco_track in event.Reco_MuonTracks :
+#        ax_zx.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().X(), reco_track.getStop().X()], color = "tab:red")
+#        ax_zy.plot([reco_track.getStart().Z(), reco_track.getStop().Z()], [reco_track.getStart().Y(), reco_track.getStop().Y()], color = "tab:red")
 
 #ax_zx.legend()
 
 plt.xlabel("z [cm]")
 plt.ylabel("y [cm]")
 
-ax_zx.set_xlim(-50, 250)
+if args.h6 :
+    z_lims = [-60, 380]
+else :
+    z_lims = [340+-50, 340+250]
+
+
+ax_zx.set_xlim(z_lims[0], z_lims[1])
 ax_zx.set_ylim(-80, 0)
 
-ax_zy.set_xlim(-50, 250)
+ax_zy.set_xlim(z_lims[0], z_lims[1])
 ax_zy.set_ylim(0, 80)
+
 plt.tight_layout()
 
 if args.out_name is not None :
