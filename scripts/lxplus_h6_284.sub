@@ -1,0 +1,12 @@
+universe = vanilla
+executable = /afs/cern.ch/work/c/cvilela/private/snd_muon_reco/scripts/lxplus_reco_h6_284.sh
+arguments = /eos/user/c/cvilela/SND_ANALYSIS_Feb18/h6_284 100000 $(Item)
+log=/afs/cern.ch/work/c/cvilela/private/h6_284_$(Item).log
+output=/afs/cern.ch/work/c/cvilela/private/h6_284_$(Item).out
+error=/afs/cern.ch/work/c/cvilela/private/h6_284_$(Item).err
+should_transfer_files = NO
+request_CPUs = 1
++JobFlavour = "tomorrow"
+notify_user = c.vilela@cern.ch
+notification = Error
+queue from seq 0 100 | 

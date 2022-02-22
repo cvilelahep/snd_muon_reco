@@ -16,7 +16,7 @@ sleep $(( I_JOB*9 ))s
 
 # Set up SND environment
 source /cvmfs/sndlhc.cern.ch/latest/setUp.sh
-cd /eos/home-c/cvilela/SND_FEB_18/
+cd /eos/home-c/cvilela/SND_FEB_7/
 export GALGCONF=/eos/home-c/cvilela/genie_conf/
 #eval `alienv load sndsw/latest-96e09ffc70-release`
 eval `alienv load sndsw/latest-feature-muon_reco-release`
@@ -25,19 +25,24 @@ cd -
 export EOSSHIP=root://eosuser.cern.ch/
 
 # Run genie
-python $SNDSW_ROOT/macro/makeSNDGenieEvents.py sim --nupdg ${NUPDG} -p ${NUINT} -n $N_TO_RUN -c /eos/home-c/cvilela/genie_splines/ -o ./
+#python $SNDSW_ROOT/macro/makeSNDGenieEvents.py sim --nupdg ${NUPDG} -p ${NUINT} -n $N_TO_RUN -c /eos/home-c/cvilela/genie_splines/ -o ./
 
 # Run detector simulation
-python $SNDSW_ROOT/shipLHC/run_simSND.py --Genie 1 -n ${N_TO_RUN}  -f ./${NUNAME}_${NUINT}_FairShip.root -o ./
+#python $SNDSW_ROOT/shipLHC/run_simSND.py --Genie 1 -n ${N_TO_RUN}  -f ./${NUNAME}_${NUINT}_FairShip.root -o ./
 
 # Run digitization
-python $SNDSW_ROOT/shipLHC/run_digiSND.py -g ./geofile_full.Genie-TGeant4.root -f ./sndLHC.Genie-TGeant4.root
+#python $SNDSW_ROOT/shipLHC/run_digiSND.py -g ./geofile_full.Genie-TGeant4.root -f ./sndLHC.Genie-TGeant4.root
+
+xrdcp ${BASE_OUT_DIR}/${I_JOB}/sndLHC.Genie-TGeant4_dig.root .
+xrdcp ${BASE_OUT_DIR}/${I_JOB}/ship.params.Genie-TGeant4.root .
+xrdcp ${BASE_OUT_DIR}/${I_JOB}/geofile_full.Genie-TGeant4.root .
 
 # Run muon reconstruction
 python ${SNDSW_ROOT}/shipLHC/run_muonRecoSND.py -f ./sndLHC.Genie-TGeant4_dig.root -p ./ship.params.Genie-TGeant4.root -g ./geofile_full.Genie-TGeant4.root
 
 # Copy output
-mkdir -p ${BASE_OUT_DIR}/${I_JOB}/
-xrdcp ./*.root ${BASE_OUT_DIR}/${I_JOB}/
-xrdcp ./*.status ${BASE_OUT_DIR}/${I_JOB}/
+rm -rf ${BASE_OUT_DIR}/${I_JOB}/sndLHC.Genie-TGeant4_dig_muonReco.root
+xrdcp ./sndLHC.Genie-TGeant4_dig_muonReco.root ${BASE_OUT_DIR}/${I_JOB}/
+
+# Clean up
 rm -rf ./*.root ./*.status

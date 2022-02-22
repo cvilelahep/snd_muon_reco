@@ -1,6 +1,6 @@
 universe = vanilla
 executable = /afs/cern.ch/work/c/cvilela/private/snd_muon_reco/scripts/lxplus_generate_nu.sh
-arguments = /eos/user/c/cvilela/SND_ANALYSIS_Feb18/neutrino/numuDefault/ 2000 $(Item) 14 Default
+arguments = /eos/user/c/cvilela/SND_ANALYSIS/neutrino/nueDefault/ 2000 $(Item) -12 Default
 log=/afs/cern.ch/work/c/cvilela/private/genie_$(Item).log
 output=/afs/cern.ch/work/c/cvilela/private/genie_$(Item).out
 error=/afs/cern.ch/work/c/cvilela/private/genie_$(Item).err
@@ -9,4 +9,4 @@ request_CPUs = 1
 +JobFlavour = "tomorrow"
 notify_user = c.vilela@cern.ch
 notification = Error
-queue from seq 0 99 | 
+queue from seq 0 100 | 
